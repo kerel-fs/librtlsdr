@@ -131,6 +131,8 @@ struct channel_solve
 	double crop, crop_tmp;
 };
 
+enum time_modes { VERBOSE_TIME, EPOCH_TIME };
+
 struct misc_settings
 {
 	int boxcar;
@@ -142,6 +144,7 @@ struct misc_settings
 	int gain;
 	double (*window_fn)(int, int);
 	int smoothing;
+	enum time_modes time_mode;
 };
 
 /* 3000 is enough for 3GHz b/w worst case */
@@ -183,6 +186,7 @@ void usage(void)
 		"\t  try -F 0 with '-c 50%%' to hide the roll off\n"
 		"\t[-r max_sample_rate (default: 2.4M)]\n"
 		"\t  possible values are 2M to 3.2M\n"
+		"\t[-E enables epoch timestamps (default: off/verbose)]\n"
 		"\t[-P enables peak hold (default: off/averaging)]\n"
 		"\t[-L enable linear output (default: off/dB)]\n"
 		"\t[-D direct_sampling_mode, 0 (default/off), 1 (I), 2 (Q), 3 (no-mod)]\n"
@@ -1002,6 +1006,7 @@ void init_misc(struct misc_settings *ms)
 	ms->smoothing = 0;
 	ms->peak_hold = 0;
 	ms->linear = 0;
+	ms->time_mode = VERBOSE_TIME;
 }
 
 int main(int argc, char **argv)
@@ -1013,6 +1018,7 @@ int main(int argc, char **argv)
 	int i, r, opt;
 	int f_set = 0;
 	int dev_index = 0;
+	char dev_label[255];
 	int dev_given = 0;
 	int ppm_error = 0;
 	int custom_ppm = 0;
@@ -1030,8 +1036,9 @@ int main(int argc, char **argv)
 	struct misc_settings ms;
 	freq_optarg = "";
 	init_misc(&ms);
+	strcpy(dev_label, "DEFAULT");
 
-	while ((opt = getopt(argc, argv, "f:i:s:r:t:d:g:p:e:w:c:F:1PLD:Oh")) != -1) {
+	while ((opt = getopt(argc, argv, "f:i:s:r:t:d:g:p:e:w:c:F:1EPLD:Oh")) != -1) {
 		switch (opt) {
 		case 'f': // lower:upper:bin_size
 			if (f_set) {
@@ -1041,6 +1048,7 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			dev_index = verbose_device_search(optarg);
+			strncpy(dev_label, optarg, 255);
 			dev_given = 1;
 			break;
 		case 'g':
@@ -1091,6 +1099,9 @@ int main(int argc, char **argv)
 			break;
 		case '1':
 			single = 1;
+			break;
+		case 'E':
+			ms.time_mode = EPOCH_TIME;
 			break;
 		case 'P':
 			ms.peak_hold = 1;
@@ -1219,7 +1230,12 @@ int main(int argc, char **argv)
 			continue;}
 		// time, Hz low, Hz high, Hz step, samples, dbm, dbm, ...
 		cal_time = localtime(&time_now);
-		strftime(t_str, 50, "%Y-%m-%d, %H:%M:%S", cal_time);
+		if (ms.time_mode == VERBOSE_TIME) {
+			strftime(t_str, 50, "%Y-%m-%d, %H:%M:%S", cal_time);
+		}
+		if (ms.time_mode == EPOCH_TIME) {
+			snprintf(t_str, 50, "%u, %s", (unsigned)time_now, dev_label);
+		}
 		for (i=0; i<tune_count; i++) {
 			fprintf(file, "%s, ", t_str);
 			csv_dbm(&tunes[i]);
