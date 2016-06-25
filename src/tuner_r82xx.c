@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "rtlsdr_i2c.h"
 #include "tuner_r82xx.h"
@@ -484,8 +485,11 @@ static int r82xx_set_pll(struct r82xx_priv *priv, uint32_t freq)
 	if (rc < 0)
 		return rc;
 
-	/* set VCO current = 100 */
-	rc = r82xx_write_reg_mask(priv, 0x12, 0x80, 0xe0);
+	/* set VCO current to MAX */
+	/*
+	 * Airspy driver does this on init, never changes it.
+	 */
+	rc = r82xx_write_reg_mask(priv, 0x12, 0x00, 0xe0);
 	if (rc < 0)
 		return rc;
 
@@ -604,10 +608,12 @@ static int r82xx_set_pll(struct r82xx_priv *priv, uint32_t freq)
 		if (i > 0)
 			break;
 
-		/* Didn't lock. Increase VCO current */
-		rc = r82xx_write_reg_mask(priv, 0x12, 0x60, 0xe0);
+		/* Didn't lock. Decrease */
+		/*
+		rc = r82xx_write_reg_mask(priv, 0x12, 0x00, 0xe0);
 		if (rc < 0)
 			return rc;
+	    */
 	}
 
 	if (!(data[2] & 0x40)) {
@@ -1342,6 +1348,12 @@ int r82xx_init(struct r82xx_priv *priv)
 
 	/* TODO: R828D might need r82xx_xtal_check() */
 	priv->xtal_cap_sel = XTAL_HIGH_CAP_0P;
+	
+	
+	/*
+	 * Haven't seen any reason not to do this
+	 */
+	priv->disable_dither = 1;
 
 	/* Initialize registers */
 	priv->reg_cache = 0;
