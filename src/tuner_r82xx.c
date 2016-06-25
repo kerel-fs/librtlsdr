@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include "rtlsdr_i2c.h"
 #include "tuner_r82xx.h"
